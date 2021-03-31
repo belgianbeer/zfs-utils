@@ -1,0 +1,131 @@
+#!/bin/sh
+#
+#  zls - 'zfs list' wrapper for me :-)
+#
+#  Copyright (c) 2020,2021 Masato Minda
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+#  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+#  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+#  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+#  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+#  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+#  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+#  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#  SUCH DAMAGE.
+#
+#  $Id: zls,v 1.20 2021/03/31 05:22:28 minmin Exp $
+
+PATH=/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
+
+__usage_ro () {
+	echo "${u} <ZFS> [on|off|inherit]" >&2
+	exit 2
+}
+
+__no_such () {
+	echo "***** ${1}: No such zfs!" >&2
+	exit 2
+}
+
+__get_zfs_list () {
+	for _zf
+	do
+		zfs list -t filesystem,volume -H -o name | grep -E "(^${_zf}|/${_zf})$"
+	done
+}
+
+__get_fs () {
+	df "${1}" | tail -1 | awk '{print $1}'
+}
+
+__do_zfs_list () {
+	_zfslist=$(__get_zfs_list "$@")
+
+	[ -z "${_zfslist}" ] && __no_such "${1}"
+
+	shift
+
+	zfs list -r ${zl_opt} ${_zfslist}
+}
+
+__list_readonly () {
+	_zfslist=$(__get_zfs_list "${1}")
+
+	[ -z "${_zfslist}" ] && __no_such "${1}"
+
+	zfs get -r -t filesystem readonly ${_zfslist}
+}
+
+__set_readonly () {
+	_zfslist=$(__get_zfs_list "${1}")
+
+	[ -z "${_zfslist}" ] && __no_such "${1}"
+
+	case "${2}" in
+	on|off)
+		zfs set readonly="${2}" ${_zfslist} ;;
+	inherit)
+		zfs inherit readonly ${_zfslist} ;;
+	*)
+		__usage_ro ;;
+	esac
+}
+
+########################################
+
+u=${0##*/}
+
+if [ $(zpool list -H -o name 2>/dev/null | wc -l ) -eq 0 ]; then
+	echo "***** No zfs in this system." >&2
+	exit 2
+fi
+
+case ${u} in
+
+zl-*)	__do_zfs_list ${u#*-} "$@"
+	;;
+
+zls)	if [ $# -eq 0 ]; then
+		__do_zfs_list $(__get_fs .)
+		exit
+	fi
+
+	for f
+	do
+		case $1 in
+		-*)	if [ -z "$flist" ]; then
+				flist=$(__get_fs .)
+			fi
+			break
+			;;
+		*)	flist="$flist $f" ; shift;;
+		esac
+	done
+
+	zl_opt="$@"
+
+	__do_zfs_list ${flist}
+	;;
+
+zfs-ro)	if [ $# -eq 1 ]; then
+		__list_readonly "${1}"
+	elif [ $# -eq 2 ]; then
+		__set_readonly "${1}" "${2}"
+	else
+		__usage_ro
+	fi
+	;;
+esac
