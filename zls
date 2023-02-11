@@ -26,7 +26,7 @@
 #  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 #  SUCH DAMAGE.
 #
-#  $Id: zls,v 1.22 2023/02/11 03:39:46 minmin Exp $
+#  $Id: zls,v 1.23 2023/02/11 06:41:16 minmin Exp $
 
 PATH=/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 
@@ -127,7 +127,7 @@ zls)	if [ $# -eq 0 ]; then
 	__do_zfs_list ${flist}
 	;;
 
-zfs-ro)
+zfs-ro|zfs-readonly)
 	if [ $# -eq 0 ]; then
 		__list_readonly $(__get_fs .)
 	elif [ $# -eq 1 ]; then
