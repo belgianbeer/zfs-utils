@@ -26,7 +26,7 @@
 #  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 #  SUCH DAMAGE.
 #
-#  $Id: zls,v 1.20 2021/03/31 05:22:28 minmin Exp $
+#  $Id: zls,v 1.22 2023/02/11 03:39:46 minmin Exp $
 
 PATH=/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 
@@ -41,7 +41,7 @@ __no_such () {
 }
 
 __get_zfs_list () {
-	for _zf
+	for _zf in "$@"
 	do
 		zfs list -t filesystem,volume -H -o name | grep -E "(^${_zf}|/${_zf})$"
 	done
@@ -61,6 +61,13 @@ __do_zfs_list () {
 	zfs list -r ${zl_opt} ${_zfslist}
 }
 
+__do_zfs_origin () {
+	local _zfslist=$(__get_zfs_list "$@")
+	[ -z "${_zfslist}" ] && __no_such "${1}"
+	shift
+	zfs get -r -t filesystem origin "$_zfslist" 
+}
+
 __list_readonly () {
 	_zfslist=$(__get_zfs_list "${1}")
 
@@ -76,7 +83,7 @@ __set_readonly () {
 
 	case "${2}" in
 	on|off)
-		zfs set readonly="${2}" ${_zfslist} ;;
+		zfs set readonly="${2}" "${_zfslist}" ;;
 	inherit)
 		zfs inherit readonly ${_zfslist} ;;
 	*)
@@ -120,12 +127,22 @@ zls)	if [ $# -eq 0 ]; then
 	__do_zfs_list ${flist}
 	;;
 
-zfs-ro)	if [ $# -eq 1 ]; then
+zfs-ro)
+	if [ $# -eq 0 ]; then
+		__list_readonly $(__get_fs .)
+	elif [ $# -eq 1 ]; then
 		__list_readonly "${1}"
 	elif [ $# -eq 2 ]; then
 		__set_readonly "${1}" "${2}"
 	else
 		__usage_ro
+	fi
+	;;
+
+zfs-origin)
+	if [ $# -eq 0 ]; then
+		__do_zfs_origin $(__get_fs .)
+		exit
 	fi
 	;;
 esac
