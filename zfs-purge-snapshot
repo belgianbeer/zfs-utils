@@ -1,0 +1,59 @@
+#!/bin/sh
+
+PATH=$PATH:/sbin:/usr/sbin
+
+list_snap='zfs list -H -o name -d 1 -t snapshot'
+list_fs='zfs list -H -o name -t filesystem,volume'
+
+__usage () {
+	echo "Usage: ${0##*/} [-anrv] zfs [zfs ...]" >&2
+	exit 2
+}
+
+__snapshot_purge () {
+	for _fs in "$@"; do
+		if [ $(${list_snap} "${_fs}" | wc -l) = 0 ]; then
+			continue
+		fi
+		_snap0=$(${list_snap} "${_fs}" | head -1)
+		_snap1=$(${list_snap} "${_fs}" | tail -1 | sed 's/.*@//')
+		[ -n "${verbose}" ] && [ -z "${NO_EXEC}" ] && echo zfs destroy "${_snap0}%${_snap1}" 
+		${NO_EXEC} zfs destroy "${_snap0}%${_snap1}" || exit
+	done
+}
+
+__snapshot_purge_only_daily () {
+	for _fs in "$@"; do
+		if [ $(${list_snap} "${_fs}" | fgrep @_daily_ | wc -l) -le 1 ]; then
+			continue
+		fi
+		_snap0=$(${list_snap} "${_fs}" | fgrep @_daily_ | head -1)
+		_snap1=$(${list_snap} "${_fs}" | fgrep @_daily_ | tail -2 | head -1 | sed 's/.*@//')
+		[ -n "${verbose}" ] && [ -z "${NO_EXEC}" ] && echo zfs destroy "${_snap0}%${_snap1}" 
+		${NO_EXEC} zfs destroy "${_snap0}%${_snap1}" || exit
+	done
+}
+
+while getopts 'anvr' cmd_arg
+do
+	case "${cmd_arg}" in
+	r)	r_flag=-r ;;
+	a)	a_flag=YES ;;
+	n)	NO_EXEC='echo' ;;
+	v)	verbose=YES ;;
+	*)	__usage ;;
+	esac
+done
+
+shift $((OPTIND - 1))
+
+if [ $# -le 0 ]; then
+	__usage
+fi
+
+
+if [ -n "${a_flag}" ]; then
+	__snapshot_purge $(${list_fs} ${r_flag} "$@")
+else
+	__snapshot_purge_only_daily $(${list_fs} ${r_flag} "$@")
+fi
