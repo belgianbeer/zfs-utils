@@ -1,3 +1,5 @@
+.cvsignore
+CVS
 zcp
 zmv
 zrmdir
