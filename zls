@@ -3,7 +3,6 @@
 #  zls - 'zfs list' wrapper for me :-)
 #
 #  Copyright (c) 2020-2023 Masato Minda
-#  All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions
@@ -31,7 +30,7 @@
 PATH=/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
 
 __usage_ro () {
-	echo "${u} <ZFS> [on|off|inherit]" >&2
+	echo "${prog} <ZFS> [on|off|inherit]" >&2
 	exit 2
 }
 
@@ -91,21 +90,8 @@ __set_readonly () {
 	esac
 }
 
-########################################
-
-u=${0##*/}
-
-if [ $(zpool list -H -o name 2>/dev/null | wc -l ) -eq 0 ]; then
-	echo "***** No zfs in this system." >&2
-	exit 2
-fi
-
-case ${u} in
-
-zl-*)	__do_zfs_list ${u#*-} "$@"
-	;;
-
-zls)	if [ $# -eq 0 ]; then
+__zls () {
+	if [ $# -eq 0 ]; then
 		__do_zfs_list $(__get_fs .)
 		exit
 	fi
@@ -125,7 +111,52 @@ zls)	if [ $# -eq 0 ]; then
 	zl_opt="$@"
 
 	__do_zfs_list ${flist}
-	;;
+}
+
+#  -H
+#  -S property
+#  -d depth
+#  -o property
+#  -p
+#  -r
+#  -s property
+#  -t type
+
+__zls_new () {
+	if [ $# -eq 0 ]; then
+		__do_zfs_list $(__get_fs .)
+		exit
+	fi
+
+	for f
+	do
+		case $1 in
+		-*)	if [ -z "$flist" ]; then
+				flist=$(__get_fs .)
+			fi
+			break
+			;;
+		*)	flist="$flist $f" ; shift;;
+		esac
+	done
+
+	zl_opt="$@"
+
+	__do_zfs_list ${flist}
+}
+
+########################################
+
+prog=${0##*/}
+
+if [ $(zpool list -H -o name 2>/dev/null | wc -l ) -eq 0 ]; then
+	echo "***** No zfs in this system." >&2
+	exit 2
+fi
+
+case ${prog} in
+
+zls)	__zls "$@" ;;
 
 zfs-ro|zfs-readonly)
 	if [ $# -eq 0 ]; then
