@@ -25,9 +25,14 @@
 #  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 #  SUCH DAMAGE.
 #
-#  $Id: zls,v 1.26 2023/06/07 04:04:02 minmin Exp $
+#  $Id: zls,v 1.27 2023/08/30 23:54:12 minmin Exp $
 
 PATH=/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
+
+zfs_list=$(mktemp /tmp/zlstemp_XXXXXXXXX)
+trap "rm -f $zfs_list" 0 1 2 3 5 15
+
+zfs list -H -o name -t filesystem,volume > $zfs_list || exit
 
 __usage_ro () {
 	echo "${prog} <ZFS> [on|off|inherit]" >&2
@@ -42,7 +47,7 @@ __no_such () {
 __get_zfs_list () {
 	for _zf in "$@"
 	do
-		zfs list -t filesystem,volume -H -o name | grep -E "(^${_zf}|/${_zf})$"
+		grep -E "(^${_zf}|/${_zf})$" ${zfs_list}
 	done
 }
 
@@ -90,7 +95,7 @@ __set_readonly () {
 	esac
 }
 
-__zls () {
+__zls_old () {
 	if [ $# -eq 0 ]; then
 		__do_zfs_list $(__get_fs .)
 		exit
@@ -113,34 +118,25 @@ __zls () {
 	__do_zfs_list ${flist}
 }
 
-#  -H
-#  -S property
-#  -d depth
-#  -o property
-#  -p
-#  -r
-#  -s property
-#  -t type
-
-__zls_new () {
-	if [ $# -eq 0 ]; then
-		__do_zfs_list $(__get_fs .)
-		exit
-	fi
-
-	for f
-	do
-		case $1 in
-		-*)	if [ -z "$flist" ]; then
-				flist=$(__get_fs .)
-			fi
-			break
-			;;
-		*)	flist="$flist $f" ; shift;;
+__zls () {
+	while [ $# -gt 0 ] ; do
+		case "$1" in
+		-H)	zl_opt="$zl_opt $1" ;;
+		-S)	zl_opt="$zl_opt $1 $2"; shift ;;
+		-d)	zl_opt="$zl_opt $1 $2"; shift ;;
+		-o)	zl_opt="$zl_opt $1 $2"; shift ;;
+		-p)	zl_opt="$zl_opt $1" ;;
+		-r)	zl_opt="$zl_opt $1" ;;
+		-s)	zl_opt="$zl_opt $1 $2"; shift ;;
+		-t)	zl_opt="$zl_opt $1 $2"; shift ;;
+		*)	flist="$flist $1" ;;
 		esac
+		shift
 	done
 
-	zl_opt="$@"
+	if [ -z "$flist" ]; then
+		flist=$(__get_fs .)
+	fi
 
 	__do_zfs_list ${flist}
 }
