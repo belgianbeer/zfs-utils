@@ -26,7 +26,7 @@
 #  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 #  SUCH DAMAGE.
 #
-#  $Id: zmkdir,v 1.20 2023/11/07 04:19:04 minmin Exp $
+#  $Id: zmkdir,v 1.22 2024/01/10 23:24:42 minmin Exp $
 
 [ -x /sbin/zfs ] || { echo "No ZFS system" >&2 ; exit 1 ; }
 
@@ -71,7 +71,7 @@ __do_create_zfs () {
 }
 
 __do_destroy_zfs () {
-	_tzfs=$(__get_fs "${2}")
+	local _tzfs=$(__get_fs "${2}")
 
 	if ! __is_zfs "${_tzfs}" || [ "${1}" = "${_tzfs}" ]; then
 		echo "Error!: ${2} is not zfs." >&2
@@ -83,6 +83,8 @@ __do_destroy_zfs () {
 }
 
 __create_zfs () {
+	local _z
+
 	if [ $# -eq 0 ]; then
 		echo "Usage: $prog dir [dir ... ]" >&2
 		exit 2
@@ -119,19 +121,36 @@ __destroy_zfs () {
 }
 
 __clone_zfs () {
+	local _dst _snap _clone
+
 	[ $# -ne 2 ] && { echo "Usage: $prog src dst" >&2 ; exit 2; }
 	__is_zfs "${czfs}/${1}" || { echo "${czfs}/${1}: zfs not found!" >&2 ; exit 2 ; }
 
 	case ${2} in
-	.|*/*)	echo "${2}: bad name!" >&2 ; exit 2 ;;
-	..)	_dst="${czfs%/*}/${1}" _clone=dotdot_${1};;
-	*)	_dst="${czfs}/${2}" _clone=${2} ;;
-	esac
 
-	if __is_zfs "${_dst}" ; then
-		echo "${_dst}: already exits!" >&2
-		exit 2
-	fi
+	.|*/*)	echo "${2}: bad name!" >&2
+		 exit 2
+		 ;;
+
+	..)	_dst="${czfs%/*}/${1}"
+		_clone=dotdot_${1}
+		if __is_zfs "${_dst}" ; then
+			echo "${_dst}: already exits!" >&2
+			exit 2
+		fi
+		;;
+
+	*)	_dst="${czfs}/${2}"
+		_clone=${2}
+		if __is_zfs "${_dst}" ; then
+			_dst="${_dst}/${1}"
+			if __is_zfs "${_dst}" ; then
+				echo "${_dst}: already exits!" >&2
+				exit 2
+			fi
+		fi
+		 ;;
+	esac
 
 	_snap=$(date +_clone_${_clone}-%Y%m%d%H%M%S)
 
@@ -142,19 +161,35 @@ __clone_zfs () {
 }
 
 __rename_zfs () {
+	local _dst
+
 	[ $# -ne 2 ] && { echo "Usage: $prog src dst" >&2 ; exit 2; }
 	__is_zfs "${czfs}/${1}" || { echo "${czfs}/${1}: zfs not found!" >&2 ; exit 2 ; }
 
 	case ${2} in
-	.|*/*)	echo "${2}: bad name!" >&2 ; exit 2 ;;
-	..)	_dst="${czfs%/*}/${1}" ;;
-	*)	_dst="${czfs}/${2}" ;;
+
+	.|*/*)	echo "${2}: bad name!" >&2 
+		exit 2
+		;;
+
+	..)	_dst="${czfs%/*}/${1}"
+		if __is_zfs "${_dst}" ; then
+			echo "${_dst}: already exits!" >&2
+			exit 2
+		fi
+		;;
+
+	*)	_dst="${czfs}/${2}"
+		if __is_zfs "${_dst}" ; then
+			_dst="${_dst}/${1}"
+			if __is_zfs "${_dst}" ; then
+				echo "${_dst}: already exits!" >&2
+				exit 2
+			fi
+		fi
+		;;
 	esac
 
-	if __is_zfs "${_dst}" ; then
-		echo "${_dst}: already exits!" >&2
-		exit 2
-	fi
 
 	__unshare_zfs "${czfs}/${1}"
 
