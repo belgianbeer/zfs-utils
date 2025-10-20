@@ -1,3 +1,4 @@
 #!/bin/sh
 
-/usr/sbin/zdb | egrep '(^[a-zA-Z0-9][a-zA-Z0-9]*|ashift):'
+PATH=/bin:/usr/bin:/usr/local/sbin:/sbin:/usr/sbin
+zdb 2> /dev/null | grep -E '(^[a-zA-Z0-9][a-zA-Z0-9]*|ashift):'
