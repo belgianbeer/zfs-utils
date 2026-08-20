@@ -26,14 +26,19 @@
 #  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 #  SUCH DAMAGE.
 #
-#  $Id: zmkdir,v 1.22 2024/01/10 23:24:42 minmin Exp $
+#  $Id: zmkdir,v 1.23 2026/08/20 00:30:24 minmin Exp $
 
 [ -x /sbin/zfs ] || { echo "No ZFS system" >&2 ; exit 1 ; }
 
 ZFS=/sbin/zfs
 
 SUDO=sudo
-type doas >/dev/null 2>&1 && SUDO=doas
+
+if [ -x /usr/bin/mdo ] && /sbin/kldstat -q -m mac_do ; then
+	SUDO=mdo
+elif type doas >/dev/null 2>&1 ; then
+	SUDO=doas
+fi
 
 __is_zfs () {
 	${ZFS} list "${1}" >/dev/null 2>&1
