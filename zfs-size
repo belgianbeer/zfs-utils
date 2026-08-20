@@ -1,0 +1,52 @@
+#!/usr/bin/env perl
+
+use Getopt::Std;
+
+getopts('Hgmk');
+
+my $base=1024;
+
+$base = 1000 if $opt_H ;
+
+$base4 = $base * $base * $base * $base;
+$base3 = $base * $base * $base;
+$base2 = $base * $base;
+
+while (<>) {
+	chomp;
+	my @item = split /\t/;
+
+	foreach my $i (@item) {
+		if ($i =~ /^[0-9]*$/) {
+			if ($i > $base4 && ! $opt_g && ! $opt_m && ! $opt_k) {
+				print "\t", readable($i , $base4), "T";
+			}
+			elsif ($i > $base3 && ! $opt_m && ! $opt_k) {
+				print "\t", readable($i , $base3), "G";
+			}
+			elsif ($i > $base2 && ! $opt_k) {
+				print "\t", readable($i , $base2), "M";
+			}
+			elsif ($i > $base ) {
+				print "\t", readable($i , $base), "k";
+			}
+			else {
+				print "\t", $i;
+			}
+		}
+		else {
+			print $i;
+		}
+	}
+
+	print "\n";
+}
+
+sub readable {
+	my ($n, $base) = @_ ;
+
+	my $i = int(($n * 100 ) / $base) ;
+	# return int ($i / 100) if ($i > 10000) ;
+	# return int ($i / 10) / 10 if ($i > 1000);
+	return $i / 100;
+}

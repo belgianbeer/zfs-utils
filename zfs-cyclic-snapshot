@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# zfs-cycle-snapshot -  Simple cyclic snapshot for ZFS
+# 
+# Example of crontab
+#
+#   */2 * * * * lockf -s -k -t 0 /var/run/zfs-snapshot.lock /path-to-this/zfs-cyclic-snapshot 100 $(zpool list -H -o name)
+#
+# $Id: zfs-cyclic-snapshot,v 1.7 2026/07/02 23:46:55 minmin Exp $
+
+export PATH=/usr/local/bin:/usr/local/sbin:/bin:/usr/bin:/sbin:/usr/sbin
+
+snap_key=_cyclesnap_
+
+if  [ $# -lt 2 ]
+then
+	echo Usage: "${0##*/}" count zfs 1>&2
+	exit 1
+fi
+
+now=$(date +${snap_key}%Y%m%d%H%M)
+
+num="${1}"
+
+[ -z "$(echo ${num} | tr -d 0-9)" ] || num=10
+[ $num -le 0 ] && num=10
+
+shift
+
+for fs in "$@"
+do
+	if ! zfs list -o name -H "${fs}" > /dev/null 2>&1 ; then
+		echo "${fs}: no such zfs" 1>&2
+		exit 2
+	fi
+
+	zfs snapshot -r "${fs}@${now}"
+
+	cur=$(zfs list -t snapshot -H -d 1 -o name "${fs}" | grep -F -c "@${snap_key}" )
+
+	if [ ${cur} -gt ${num} ]
+	then
+		for snap in $(zfs list -t snapshot -H -d 1 -o name "${fs}" | grep -F "@${snap_key}" | head -n $((cur - num)))
+		do
+			zfs destroy -r ${snap}
+		done
+	fi
+done

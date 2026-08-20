@@ -1,0 +1,22 @@
+#!/bin/sh
+
+cat <<-EOT
+
+	# CREATE POOL
+	# 
+	zpool create
+	  -O compression=lz4 -O atime=off
+	  -o altroot=/mnt
+	  -o ashift=9
+	    zvol1 mirror gpt/mindisk0 gpt/mindisk1
+	    zvol1 gpt/mindisk0 gpt/mindisk1
+
+	# SNAPSHOT
+	#
+	zfs snapshot -r zvol0@move
+
+	#  send & recv
+	#
+	zfs send -R zvol0@move | zfs receive -v -F zvol1
+
+EOT
